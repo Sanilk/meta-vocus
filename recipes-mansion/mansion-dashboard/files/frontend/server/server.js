@@ -1,5 +1,6 @@
 const express = require('express');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const { exec } = require('child_process');
 
@@ -7,7 +8,7 @@ const APP_DIR = path.join(__dirname, '..', 'public'); // serve frontend assets f
 const DATA_FILE = path.join(__dirname, 'data.json');
 const CONFIG_FILE = path.join(__dirname, 'server-config.json');
 
-let config = { mode: 'mock', pollIntervalMs: 2000, port: 3000 };
+let config = { mode: 'local', pollIntervalMs: 2000, port: 3000 };
 try {
   const raw = fs.readFileSync(CONFIG_FILE, 'utf8');
   config = Object.assign(config, JSON.parse(raw));
@@ -15,43 +16,111 @@ try {
   console.warn('No server-config.json found, using defaults.');
 }
 
-function writeDataFile(obj) {
+let prevNetworkStats = null;
+
+function formatUptime(seconds) {
+  const hrs = Math.floor(seconds / 3600);
+  const mins = Math.floor((seconds % 3600) / 60);
+  return `${hrs}h ${mins}m`;
+}
+
+function getLocalIp() {
+  const nets = os.networkInterfaces();
+  for (const iface of Object.values(nets)) {
+    if (!iface) continue;
+    for (const addr of iface) {
+      if (addr.family === 'IPv4' && !addr.internal) {
+        return addr.address;
+      }
+    }
+  }
+  return '127.0.0.1';
+}
+
+function getFirmwareVersion() {
   try {
-    fs.writeFileSync(DATA_FILE, JSON.stringify(obj, null, 2));
+    const release = fs.readFileSync('/etc/os-release', 'utf8');
+    const match = release.match(/^VERSION="?(.+?)"?$/m);
+    if (match) return match[1];
   } catch (err) {
-    console.error('Failed to write data file:', err);
+    // fallback
+  }
+  return os.release();
+}
+
+function getCpuLoadPercent() {
+  const loadAvg = os.loadavg()[0] || 0;
+  const cores = Math.max(os.cpus().length, 1);
+  return Math.round((loadAvg / cores) * 100);
+}
+
+function getMemoryUsage() {
+  const total = os.totalmem();
+  const free = os.freemem();
+  return {
+    used: Math.round((total - free) / 1024 / 1024),
+    total: Math.round(total / 1024 / 1024)
+  };
+}
+
+function getActiveInterfaceName() {
+  const nets = os.networkInterfaces();
+  for (const [name, iface] of Object.entries(nets)) {
+    if (!iface) continue;
+    if (iface.some(addr => addr.family === 'IPv4' && !addr.internal)) {
+      return name;
+    }
+  }
+  return null;
+}
+
+function readInterfaceBytes(ifName) {
+  const base = `/sys/class/net/${ifName}/statistics`;
+  const rx = Number(fs.readFileSync(path.join(base, 'rx_bytes'), 'utf8').trim());
+  const tx = Number(fs.readFileSync(path.join(base, 'tx_bytes'), 'utf8').trim());
+  return { rx, tx };
+}
+
+function getNetworkRate() {
+  const ifName = getActiveInterfaceName();
+  if (!ifName) return { rx: 0, tx: 0 };
+
+  try {
+    const now = Date.now();
+    const current = readInterfaceBytes(ifName);
+    if (!prevNetworkStats || prevNetworkStats.ifName !== ifName) {
+      prevNetworkStats = { ifName, rx: current.rx, tx: current.tx, ts: now };
+      return { rx: 0, tx: 0 };
+    }
+
+    const seconds = Math.max((now - prevNetworkStats.ts) / 1000, 1);
+    const rxRate = Math.max((current.rx - prevNetworkStats.rx) / 1024 / 1024 / seconds, 0);
+    const txRate = Math.max((current.tx - prevNetworkStats.tx) / 1024 / 1024 / seconds, 0);
+
+    prevNetworkStats = { ifName, rx: current.rx, tx: current.tx, ts: now };
+    return { rx: +rxRate.toFixed(2), tx: +txRate.toFixed(2) };
+  } catch (err) {
+    return { rx: 0, tx: 0 };
   }
 }
 
-function fetchFromSSH(sshCfg) {
-  return new Promise((resolve, reject) => {
-    if (!sshCfg.host || !sshCfg.command) return reject(new Error('SSH host/command not configured'));
-    const cmd = `ssh ${sshCfg.host} "${sshCfg.command}"`;
-    exec(cmd, { timeout: 15000 }, (err, stdout, stderr) => {
-      if (err) return reject(err);
-      try {
-        const parsed = JSON.parse(stdout);
-        resolve(parsed);
-      } catch (e) {
-        reject(e);
-      }
-    });
-  });
-}
-
-function fetchFromCmd(cmd) {
-  return new Promise((resolve, reject) => {
-    if (!cmd) return reject(new Error('Command not configured'));
-    exec(cmd, { timeout: 15000 }, (err, stdout, stderr) => {
-      if (err) return reject(err);
-      try {
-        const parsed = JSON.parse(stdout);
-        resolve(parsed);
-      } catch (e) {
-        reject(e);
-      }
-    });
-  });
+function fetchSystemData(base) {
+  const network = getNetworkRate();
+  return {
+    status: 'Running',
+    uptime: formatUptime(os.uptime()),
+    ip: getLocalIp(),
+    firmware: getFirmwareVersion(),
+    temperature: typeof base.temperature === 'number' ? base.temperature : 0,
+    humidity: typeof base.humidity === 'number' ? base.humidity : 0,
+    tvoc: typeof base.tvoc === 'number' ? base.tvoc : 0,
+    voltage: typeof base.voltage === 'number' ? base.voltage : 0,
+    cpuLoad: getCpuLoadPercent(),
+    memory: getMemoryUsage(),
+    network,
+    ledState: typeof base.ledState === 'boolean' ? base.ledState : false,
+    bootMode: base.bootMode || 'Normal'
+  };
 }
 
 function fetchMock(base) {
@@ -81,18 +150,27 @@ async function fetchTelemetry() {
     } else if (config.mode === 'cmd') {
       const resp = await fetchFromCmd(config.cmd);
       return resp;
+    } else if (config.mode === 'local') {
+      return fetchSystemData(config.mock || {});
     } else {
       return fetchMock(config.mock || {});
     }
   } catch (err) {
     console.error('Hardware fetch failed:', err);
+    if (config.mode === 'local') {
+      return fetchSystemData(config.mock || {});
+    }
     return fetchMock(config.mock || {});
   }
 }
 
 // Ensure data file exists initially
 if (!fs.existsSync(DATA_FILE)) {
-  writeDataFile(config.mock || { status: 'Running' });
+  if (config.mode === 'local') {
+    writeDataFile(fetchSystemData(config.mock || {}));
+  } else {
+    writeDataFile(config.mock || { status: 'Running' });
+  }
 }
 
 const app = express();

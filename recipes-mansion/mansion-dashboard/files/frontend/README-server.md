@@ -25,9 +25,9 @@ Configuration
 
 Edit `server-config.json` to change behavior:
 
-- `mode`: `mock` (default), `cmd` (run local shell command), `ssh` (ssh to remote and run command) or `push` (no polling)
+- `mode`: `local` (fetch local system telemetry), `mock`, `cmd` (run local shell command), `ssh` (ssh to remote and run command) or `push` (no polling)
 - `pollIntervalMs`: polling interval in milliseconds
-- `mock`: base telemetry values used for mock mode
+- `mock`: base telemetry values used for mock mode and for local mode fallback where sensor fields remain simulated
 - `cmd`: set `cmd` to a shell command that prints JSON telemetry
 - `ssh`: set `ssh.host` and `ssh.command` to fetch JSON via ssh
 

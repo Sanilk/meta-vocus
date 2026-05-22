@@ -1,0 +1,31 @@
+{
+  "mode": "mock",
+  "pollIntervalMs": 2000,
+  "port": 3000,
+  "cmd": "",
+  "ssh": {
+    "host": "",
+    "command": ""
+  },
+  "mock": {
+    "status": "Running",
+    "uptime": "0h 0m",
+    "ip": "192.168.1.120",
+    "firmware": "v1.2.0",
+    "temperature": 45,
+    "humidity": 62,
+    "tvoc": 150,
+    "voltage": 3.30,
+    "cpuLoad": 31,
+    "memory": {
+      "used": 1024,
+      "total": 2048
+    },
+    "network": {
+      "rx": 2.8,
+      "tx": 1.4
+    },
+    "ledState": false,
+    "bootMode": "Normal"
+  }
+}

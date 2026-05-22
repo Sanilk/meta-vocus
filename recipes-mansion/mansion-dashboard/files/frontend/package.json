@@ -1,0 +1,12 @@
+{
+  "name": "stm32-dashboard-server",
+  "version": "0.1.0",
+  "description": "Simple server to fetch telemetry from hardware and serve frontend for STM32 dashboard",
+  "main": "server/server.js",
+  "scripts": {
+    "start": "node server/server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}

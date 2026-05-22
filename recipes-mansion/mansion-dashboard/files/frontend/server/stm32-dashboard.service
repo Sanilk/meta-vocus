@@ -1,0 +1,16 @@
+[Unit]
+Description=STM32 Dashboard Server
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/usr/share/mansion-dashboard/server
+ExecStart=/usr/bin/node /usr/share/mansion-dashboard/server/server.js
+Restart=always
+RestartSec=5
+Environment=NODE_ENV=production
+StandardOutput=journal
+StandardError=inherit
+
+[Install]
+WantedBy=multi-user.target

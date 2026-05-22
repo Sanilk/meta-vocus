@@ -1,0 +1,21 @@
+{
+    "status": "Running",
+    "uptime": "12h 34m",
+    "ip": "192.168.1.120",
+    "firmware": "v1.2.0",
+    "temperature": 45,
+    "humidity": 62,
+    "tvoc": 150,
+    "voltage": 3.30,
+    "cpuLoad": 31,
+    "memory": {
+        "used": 1024,
+        "total": 2048
+    },
+    "network": {
+        "rx": 2.8,
+        "tx": 1.4
+    },
+    "ledState": false,
+    "bootMode": "Normal"
+}

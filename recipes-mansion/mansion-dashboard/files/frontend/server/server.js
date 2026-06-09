@@ -164,6 +164,41 @@ async function fetchTelemetry() {
   }
 }
 
+function writeDataFile(data) {
+  try {
+    fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), 'utf8');
+  } catch (err) {
+    console.error('Failed to write telemetry data file:', err);
+  }
+}
+
+function parseJson(text) {
+  try {
+    return JSON.parse(text);
+  } catch (err) {
+    return null;
+  }
+}
+
+function fetchFromCmd(cmd) {
+  return new Promise((resolve, reject) => {
+    exec(cmd, { encoding: 'utf8', shell: '/bin/sh' }, (err, stdout, stderr) => {
+      if (err) return reject(err);
+      const parsed = parseJson(stdout);
+      if (!parsed) return reject(new Error(`Invalid JSON from cmd: ${stderr || stdout}`));
+      resolve(parsed);
+    });
+  });
+}
+
+function fetchFromSSH(ssh) {
+  if (!ssh || !ssh.host || !ssh.command) {
+    return Promise.reject(new Error('Invalid SSH config')); 
+  }
+  const escapedCommand = ssh.command.replace(/'/g, "'\\''");
+  return fetchFromCmd(`ssh ${ssh.host} '${escapedCommand}'`);
+}
+
 // Ensure data file exists initially
 if (!fs.existsSync(DATA_FILE)) {
   if (config.mode === 'local') {
@@ -177,15 +212,15 @@ const app = express();
 app.use(express.json());
 app.use(express.static(APP_DIR));
 
-app.get('/api/telemetry', (req, res) => {
-  fs.readFile(DATA_FILE, 'utf8', (err, txt) => {
-    if (err) return res.status(500).json({ error: 'failed to read data' });
-    try {
-      return res.json(JSON.parse(txt));
-    } catch (e) {
-      return res.status(500).json({ error: 'invalid data file' });
-    }
-  });
+app.get('/api/telemetry', async (req, res) => {
+  try {
+    const telemetry = await fetchTelemetry();
+    writeDataFile(telemetry);
+    return res.json(telemetry);
+  } catch (err) {
+    console.error('Failed to fetch telemetry:', err);
+    return res.status(500).json({ error: 'failed to fetch telemetry', details: err.message });
+  }
 });
 
 app.post('/api/telemetry', (req, res) => {

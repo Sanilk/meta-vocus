@@ -11,7 +11,15 @@ SRC_URI = "file://frontend \
 S = "${WORKDIR}/frontend"
 
 DEPENDS = "nodejs-native"
-RDEPENDS_${PN} = "nodejs"
+RDEPENDS:${PN} += " \
+    nodejs \
+    git \
+    curl \
+    wget \
+    iproute2 \
+    ethtool \
+    bind-utils \
+"
 
 inherit allarch
 inherit systemd

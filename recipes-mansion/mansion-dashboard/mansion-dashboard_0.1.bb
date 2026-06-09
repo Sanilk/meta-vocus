@@ -16,6 +16,7 @@ RDEPENDS:${PN} += " \
     git \
     curl \
     wget \
+    busybox \
     iproute2 \
     ethtool \
     bind-utils \

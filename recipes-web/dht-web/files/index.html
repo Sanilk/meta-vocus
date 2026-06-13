@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>STM32MP157 DHT11 Monitor</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #1e1e1e;
+            color: white;
+            text-align: center;
+            margin-top: 50px;
+        }
+
+        .card {
+            background: #2d2d2d;
+            width: 300px;
+            margin: auto;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px #000;
+        }
+
+        h1 {
+            color: #4CAF50;
+        }
+
+        .value {
+            font-size: 2em;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="card">
+        <h1>DHT11 Sensor</h1>
+
+        <div class="value">
+            🌡 Temperature:
+            <span id="temp">--</span> °C
+        </div>
+
+        <div class="value">
+            💧 Humidity:
+            <span id="hum">--</span> %
+        </div>
+    </div>
+
+    <script>
+        async function updateSensor() {
+
+            const response = await fetch('/sensor');
+
+            const data = await response.json();
+
+            document.getElementById('temp').innerText =
+                data.temperature.toFixed(1);
+
+            document.getElementById('hum').innerText =
+                data.humidity.toFixed(1);
+        }
+
+        updateSensor();
+
+        setInterval(updateSensor, 2000);
+    </script>
+
+</body>
+</html>

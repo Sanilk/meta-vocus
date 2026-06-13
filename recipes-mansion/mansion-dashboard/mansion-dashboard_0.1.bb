@@ -1,5 +1,6 @@
 SUMMARY = "STM32 Dashboard server and web frontend"
 DESCRIPTION = "A simple Node.js dashboard server and browser UI for STM32 telemetry, packaged for Yocto."
+
 LICENSE = "MIT"
 LIC_FILES_CHKSUM = "file://COPYING.MIT;md5=3da9cfbcb788c80a0384361b4de20420"
 
@@ -22,11 +23,18 @@ RDEPENDS:${PN} += " \
     bind-utils \
 "
 
-inherit allarch
-inherit systemd
+inherit allarch systemd
 
-SYSTEMD_SERVICE_${PN} = "stm32-dashboard.service"
+SYSTEMD_SERVICE:${PN} = "stm32-dashboard.service"
 SYSTEMD_AUTO_ENABLE = "enable"
+
+IMAGE_INSTALL:append = " \
+    busybox \
+    procps \
+    util-linux \
+    iproute2 \
+    net-tools \
+"
 
 do_compile() {
     cd ${S}/server
@@ -45,4 +53,7 @@ do_install() {
     install -m 0755 ${WORKDIR}/initial_setup.sh ${D}${bindir}initial_setup
 }
 
-FILES_${PN} += "${datadir}/mansion-dashboard ${systemd_unitdir}/system/stm32-dashboard.service"
+FILES:${PN} += " \
+    ${datadir}/mansion-dashboard \
+    ${systemd_unitdir}/system/stm32-dashboard.service \
+"

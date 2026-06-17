@@ -1,17 +1,21 @@
 SUMMARY = "STM32 Dashboard server and web frontend"
 DESCRIPTION = "A simple Node.js dashboard server and browser UI for STM32 telemetry, packaged for Yocto."
 
-LICENSE = "MIT"
-LIC_FILES_CHKSUM = "file://COPYING.MIT;md5=3da9cfbcb788c80a0384361b4de20420"
+LICENSE = "CLOSED"
 
 PR = "r0"
 
-FILESEXTRAPATHS_prepend := "${LAYERDIR}:"
-SRC_URI = "file://frontend \
-           file://initial_setup.sh"
+FILESEXTRAPATHS:prepend := "${THISDIR}:"
+
+SRC_URI = " \
+    file://frontend \
+    file://initial_setup.sh \
+"
+
 S = "${WORKDIR}/frontend"
 
 DEPENDS = "nodejs-native"
+
 RDEPENDS:${PN} += " \
     nodejs \
     git \
@@ -23,18 +27,13 @@ RDEPENDS:${PN} += " \
     bind-utils \
 "
 
-inherit allarch systemd
+inherit systemd
 
 SYSTEMD_SERVICE:${PN} = "stm32-dashboard.service"
 SYSTEMD_AUTO_ENABLE = "enable"
 
-IMAGE_INSTALL:append = " \
-    busybox \
-    procps \
-    util-linux \
-    iproute2 \
-    net-tools \
-"
+# npm install requires network access if dependencies are not vendored
+do_compile[network] = "1"
 
 do_compile() {
     cd ${S}/server
@@ -49,11 +48,18 @@ do_install() {
 
     cp -a ${S}/server/. ${D}${datadir}/mansion-dashboard/server/
     cp -a ${S}/public/. ${D}${datadir}/mansion-dashboard/public/
-    install -m 0644 ${S}/server/stm32-dashboard.service ${D}${systemd_unitdir}/system/
-    install -m 0755 ${WORKDIR}/initial_setup.sh ${D}${bindir}initial_setup
+
+    install -m 0644 \
+        ${S}/server/stm32-dashboard.service \
+        ${D}${systemd_unitdir}/system/
+
+    install -m 0755 \
+        ${WORKDIR}/initial_setup.sh \
+        ${D}${bindir}/initial_setup
 }
 
 FILES:${PN} += " \
     ${datadir}/mansion-dashboard \
     ${systemd_unitdir}/system/stm32-dashboard.service \
+    ${bindir}/initial_setup \
 "

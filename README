@@ -39,3 +39,6 @@ II. Misc
 ========
 
 --- replace with specific information about the meta-vocus layer ---
+
+Custom Distro
+Add DISTRO=scarthgap to local.conf file
